@@ -126,16 +126,17 @@
       <span><i style="border-color:#17365e"></i>בסיס</span>
       <span><i style="border-color:#6db580"></i>גובה</span>
     </div>
-    <p>גררו את הנקודה שעל הצלע שמול הבסיס, וגררו את הקודקודים <span class="m">A</span>, <span class="m">B</span> ו־<span class="m">D</span>. הקודקוד <span class="m">C</span> זז לבד, כדי שהצורה תישאר מקבילית.</p>
+    <p>גררו את הנקודה שעל הצלע שמול הבסיס. לכל בסיס אפשר לשרטט הרבה גבהים – וכולם באותו אורך.</p>
+    <p>גררו קודקוד כדי לשנות את המקבילית. הקודקוד שמולו זז איתו, כדי שהצורה תישאר מקבילית.</p>
 
     <table class="hs" aria-label="בסיסים וגבהים">
       <thead><tr><th>בסיס</th><th>אורך הבסיס</th><th>הגובה לבסיס</th></tr></thead>
       <tbody id="tbody"></tbody>
     </table>
 
-    <div class="q"><b>גלו:</b> כמה גבהים שונים יש למקבילית? בחרו כל צלע בתורה כבסיס והשוו.</div>
+    <div class="q"><b>גלו:</b> בחרו כל צלע בתורה כבסיס. לאילו צלעות יש אותו גובה?<br>כמה <b>אורכים שונים</b> של גובה יש למקבילית?</div>
     <p class="sr-only" id="live" aria-live="polite"></p>
-    <p class="sr-only">מקלדת: עמדו על השרטוט. Enter מעביר בין הנקודות A, B, D ונקודת הגובה; החצים מזיזים את הנקודה.</p>
+    <p class="sr-only">מקלדת: עמדו על השרטוט. Enter מעביר בין הקודקודים A, B, C, D ונקודת הגובה; החצים מזיזים את הנקודה.</p>
   </section>
 
   <section class="card stage">
@@ -148,7 +149,7 @@
   /* ---------- קבועי עיצוב (מחייבים) ---------- */
   const C = { blue:'#17365e', green:'#6db580', mustard:'#e7b976', bordo:'#832058', line:'#6f7f8f', grid:'#ece8de' };
   const W = { line:2.2, base:2.8, height:2.6, aux:1.8, mark:1.8, pointRing:3 };
-  const POINT_R = 7, HALO_R = 14, HIT_R = 24, SIDE_HIT = 14, LABEL_PX = 17, VALUE_PX = 17;
+  const POINT_R = 7, HALO_R = 14, HIT_R = 24, SIDE_HIT = 14, SIDE_END = 40, TAP_MOVE = 6, LABEL_PX = 17, VALUE_PX = 17;
 
   /* ---------- מודל: יחידות רשת, קנה מידה אחיד ---------- */
   const WORLD = { w:22, h:14 };                 // 22×14 יחידות
@@ -215,7 +216,8 @@
   const fromPx=(x,y)=>({x:(x-ox)/sc, y:(y-oy)/sc});
 
   let hover=null, hoverSide=null, drag=null, focusIdx=0, kbActive=false;
-  const ORDER=['A','B','D','E'];
+  const ORDER=['A','B','C','D','E'];
+  const OPPV={A:'C',B:'D',C:'A',D:'B'}, NB={A:['B','D'],B:['A','C'],C:['B','D'],D:['A','C']};
 
   function line(a,b,color,w,dash){ ctx.save(); ctx.strokeStyle=color; ctx.lineWidth=w; if(dash) ctx.setLineDash(dash); ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke(); ctx.restore(); }
   function point(Q,ring,active,small){
@@ -298,8 +300,8 @@
     // קודקודים ואותיות
     for(const nme of ['A','B','C','D']){
       const Q=V[nme], i=ORDER.indexOf(nme);
-      const active = nme!=='C' && (hover===nme||drag===nme||(kbActive&&focusIdx===i));
-      point(Q, nme==='C'?C.blue:C.bordo, active);
+      const active = hover===nme||drag===nme||(kbActive&&focusIdx===i);
+      point(Q, C.bordo, active);
       const d={x:Q.x-cen.x,y:Q.y-cen.y}, L=len(d)||1;
       ctx.save(); ctx.direction='ltr'; ctx.font=`700 ${LABEL_PX}px "Times New Roman", Georgia, serif`; ctx.fillStyle=C.blue; ctx.textAlign='center'; ctx.textBaseline='middle';
       ctx.fillText(nme, Q.x+d.x/L*22, Q.y+d.y/L*22); ctx.restore();
@@ -331,15 +333,20 @@
   function hitPoint(x,y){
     const E=toPx(geom().E);
     let best=null, bd=HIT_R;
-    const cand={A:toPx(P.A),B:toPx(P.B),D:toPx(P.D),E};
-    // נקודת הגובה קודמת – היא הפעולה העיקרית
-    for(const n of ['E','A','B','D']){ const d=Math.hypot(cand[n].x-x,cand[n].y-y); if(d<bd-0.01){bd=d;best=n;} }
+    const cand={A:toPx(P.A),B:toPx(P.B),C:toPx(P.C),D:toPx(P.D),E};
+    // הנקודה הקרובה ביותר נבחרת; בשוויון – נקודת הגובה
+    for(const n of ['E','A','B','C','D']){ const d=Math.hypot(cand[n].x-x,cand[n].y-y); if(d<bd-0.01){bd=d;best=n;} }
     return best;
   }
   function segDist(p,a,b){ const d=sub(b,a), L2=d.x*d.x+d.y*d.y; let k=((p.x-a.x)*d.x+(p.y-a.y)*d.y)/L2; k=Math.max(0,Math.min(1,k)); return Math.hypot(p.x-(a.x+d.x*k), p.y-(a.y+d.y*k)); }
   function hitSide(x,y){
     let best=null, bd=SIDE_HIT;
-    for(const s of Object.keys(SIDES)){ const [a,b]=SIDES[s]; const d=segDist({x,y},toPx(P[a]),toPx(P[b])); if(d<bd){bd=d;best=s;} }
+    for(const s of Object.keys(SIDES)){
+      const [a,b]=SIDES[s], pa=toPx(P[a]), pb=toPx(P[b]);
+      // רק באמצע הצלע: ליד קודקוד לחיצה תמיד שייכת לקודקוד
+      if(Math.hypot(pa.x-x,pa.y-y)<SIDE_END || Math.hypot(pb.x-x,pb.y-y)<SIDE_END) continue;
+      const d=segDist({x,y},pa,pb); if(d<bd){bd=d;best=s;}
+    }
     return best;
   }
   const local=e=>{ const r=cv.getBoundingClientRect(); return {x:e.clientX-r.left, y:e.clientY-r.top}; };
@@ -347,7 +354,9 @@
   function moveVertex(n, w){
     const p={x:Math.round(w.x), y:Math.round(w.y)};
     if(p.x===P[n].x && p.y===P[n].y) return;
-    const Q=withC({A:{...P.A},B:{...P.B},D:{...P.D},[n]:p});
+    const Q={A:{...P.A},B:{...P.B},C:{...P.C},D:{...P.D}};
+    Q[n]=p; const [n1,n2]=NB[n], o=OPPV[n];
+    Q[o]={x:Q[n1].x+Q[n2].x-p.x, y:Q[n1].y+Q[n2].y-p.y};      // השכנים נשארים, הקודקוד שמול זז
     if(valid(Q)){ P=Q; centerT(); }   // הצורה השתנתה – הגובה חוזר למקום מרכזי מעל הבסיס
   }
   function moveE(w){
@@ -358,16 +367,22 @@
   cv.addEventListener('pointerdown', e=>{
     const p=local(e), n=hitPoint(p.x,p.y);
     if(n){ drag=n; kbActive=false; cv.setPointerCapture(e.pointerId); cv.style.cursor='grabbing'; e.preventDefault(); draw(); return; }
-    const s=hitSide(p.x,p.y); if(s){ e.preventDefault(); chooseBase(s); }
+    const s=hitSide(p.x,p.y); if(s){ e.preventDefault(); pendingSide={s, x:p.x, y:p.y, id:e.pointerId}; }
   });
+  let pendingSide=null;
   cv.addEventListener('pointermove', e=>{
     const p=local(e);
+    if(pendingSide && Math.hypot(p.x-pendingSide.x,p.y-pendingSide.y)>TAP_MOVE) pendingSide=null;   // זו גרירה, לא הקשה
     if(drag){ const w=fromPx(p.x,p.y); if(drag==='E') moveE(w); else moveVertex(drag,w); draw(); return; }
     const h=hitPoint(p.x,p.y), hs=h?null:hitSide(p.x,p.y);
     if(h!==hover || hs!==hoverSide){ hover=h; hoverSide=hs; cv.style.cursor=h?'grab':(hs?'pointer':'default'); draw(); }
   });
   const end=()=>{ if(!drag) return; drag=null; cv.style.cursor=hover?'grab':'default'; draw(); };
-  cv.addEventListener('pointerup',end); cv.addEventListener('pointercancel',end);
+  cv.addEventListener('pointerup',e=>{
+    if(pendingSide){ const p=local(e); if(Math.hypot(p.x-pendingSide.x,p.y-pendingSide.y)<=TAP_MOVE && hitSide(p.x,p.y)===pendingSide.s) chooseBase(pendingSide.s); pendingSide=null; }
+    end();
+  });
+  cv.addEventListener('pointercancel',()=>{ pendingSide=null; end(); });
   cv.addEventListener('pointerleave',()=>{ if(!drag && (hover||hoverSide)){ hover=null; hoverSide=null; draw(); } });
 
   /* ---------- מקלדת ---------- */
